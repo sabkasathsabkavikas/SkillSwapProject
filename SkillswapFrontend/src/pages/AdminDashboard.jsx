@@ -1,79 +1,48 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
+import api from '../api';
+import { useNavigate } from 'react-router-dom';
 
 function AdminDashboard() {
+  const nav = useNavigate();
   const me = JSON.parse(localStorage.getItem("loggedInUser"));
-  const [profs, setProfs] = useState([]);
-  const [reqs, setReqs] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [swaps, setSwaps] = useState([]);
 
   useEffect(() => {
-    setProfs(JSON.parse(localStorage.getItem("allProfiles")) || []);
-    setReqs(JSON.parse(localStorage.getItem("swapRequests")) || []);
-  }, []);
+    if (!me?.isAdmin) { nav('/'); return; }
+    api.get('/users/public').then(res => setUsers(res.data));
+    api.get('/swaps').then(res => setSwaps(res.data));
+  }, [me]);
 
-  if (!me?.isAdmin) {
-    return (
-      <div className="container">
-        <h3>🔒 Access denied</h3>
-      </div>
-    );
-  }
-
-  const ban = (n) => {
-    const p = profs.filter((x) => x.name !== n);
-    const q = reqs.filter((r) => r.sender !== n && r.receiver !== n);
-    setProfs(p);
-    setReqs(q);
-    localStorage.setItem("allProfiles", JSON.stringify(p));
-    localStorage.setItem("swapRequests", JSON.stringify(q));
-    alert(`Banned ${n}`);
+  const ban = async id => {
+    await api.delete(`/users/${id}`);
+    setUsers(u => u.filter(x => x.id !== id));
   };
-  const clear = (n) => {
-    const p = profs.map((x) =>
-      x.name === n
-        ? { ...x, skillsOffered: "[Removed]", skillsWanted: "[Removed]" }
-        : x
-    );
-    setProfs(p);
-    localStorage.setItem("allProfiles", JSON.stringify(p));
-    alert(`Cleared skills for ${n}`);
+
+  const clearSkills = async id => {
+    await api.put(`/users/${id}`, { skillsOffered: "[Removed]", skillsWanted: "[Removed]" });
+    setUsers(u => u.map(x => x.id===id ? { ...x, skillsOffered: "[Removed]", skillsWanted: "[Removed]" } : x));
   };
 
   return (
     <div className="container">
       <h2>🛡️ Admin Dashboard</h2>
+
       <h3>👥 Users</h3>
-      {profs.map((u) => (
-        <div key={u.name} className="card">
+      {users.map(u=>(
+        <div className="card" key={u.id}>
           <h4>{u.name}</h4>
-          <p>
-            <strong>Offered:</strong> {u.skillsOffered}
-          </p>
-          <p>
-            <strong>Wanted:</strong> {u.skillsWanted}
-          </p>
-          <p>
-            <strong>Loc:</strong> {u.location}
-          </p>
-          <p>
-            <strong>Avail:</strong> {u.availability}
-          </p>
-          <button className="button" onClick={() => ban(u.name)}>
-            🚫 Ban
-          </button>
-          <button className="button" onClick={() => clear(u.name)}>
-            🧹 Clear Skills
-          </button>
+          <p><strong>Offered:</strong> {u.skillsOffered}</p>
+          <button className="button" onClick={()=>ban(u.id)}>🚫 Ban</button>
+          <button className="button" onClick={()=>clearSkills(u.id)}>🧹 Clear Skills</button>
         </div>
       ))}
 
-      <h3>📄 Requests</h3>
-      {reqs.map((r) => (
-        <div key={r.id} className="card">
-          <p>
-            From <strong>{r.sender}</strong> to <strong>{r.receiver}</strong>
-          </p>
-          <p>Skill: {r.skillRequested}</p>
-          <p>Status: {r.status}</p>
+      <h3>📄 Swap Requests</h3>
+      {swaps.map(s=>(
+        <div className="card" key={s.id}>
+          <p>From <strong>{s.senderId}</strong> to <strong>{s.receiverId}</strong></p>
+          <p>for <em>{s.skillRequested}</em> — {s.status}</p>
         </div>
       ))}
     </div>
