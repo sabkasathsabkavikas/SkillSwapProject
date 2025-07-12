@@ -1,65 +1,82 @@
-import React, { useState } from "react";
-import SwapRequestCard from "../components/SwapRequestCard";
-import FeedbackForm from "../components/FeedbackForm";
-
-const mockSwaps = [
-  {
-    id: 1,
-    from: "Alice",
-    to: "You",
-    skill: "Photoshop",
-    status: "accepted",
-    feedbackGiven: false,
-  },
-  {
-    id: 2,
-    from: "Bob",
-    to: "You",
-    skill: "Excel",
-    status: "rejected",
-    feedbackGiven: false,
-  },
-];
+import React, { useEffect, useState } from "react";
 
 function Swaps() {
-  const [swaps, setSwaps] = useState(mockSwaps);
+  const me = JSON.parse(localStorage.getItem("loggedInUser"));
+  const [reqs, setReqs] = useState([]);
 
-  const handleAction = (id, action) => {
-    const updatedSwaps = swaps
-      .map((swap) => {
-        if (swap.id === id) {
-          if (action === "delete") return null;
-          return { ...swap, status: action };
-        }
-        return swap;
-      })
-      .filter(Boolean);
-    setSwaps(updatedSwaps);
+  useEffect(() => {
+    setReqs(JSON.parse(localStorage.getItem("swapRequests")) || []);
+  }, []);
+
+  const act = (id, s) => {
+    const upd = reqs.map((r) => (r.id === id ? { ...r, status: s } : r));
+    setReqs(upd);
+    localStorage.setItem("swapRequests", JSON.stringify(upd));
   };
 
-  const handleFeedbackSubmit = (id, feedback) => {
-    console.log(`Feedback for swap ${id}:`, feedback);
-    alert("Feedback submitted!");
-    setSwaps(
-      swaps.map((swap) =>
-        swap.id === id ? { ...swap, feedbackGiven: true } : swap
-      )
-    );
+  const cancel = (id) => {
+    const f = reqs.filter((r) => r.id !== id);
+    setReqs(f);
+    localStorage.setItem("swapRequests", JSON.stringify(f));
   };
+
+  const inc = reqs.filter((r) => r.receiver === me.name);
+  const out = reqs.filter((r) => r.sender === me.name);
 
   return (
     <div className="container">
-      <h2>Your Swap Requests</h2>
-      {swaps.length === 0 ? (
-        <p>No swap requests.</p>
+      <h2>🔁 Swap Requests</h2>
+
+      <h3>Incoming</h3>
+      {inc.length === 0 ? (
+        <p>No incoming.</p>
       ) : (
-        swaps.map((swap) => (
-          <div key={swap.id} style={{ marginBottom: "2rem" }}>
-            <SwapRequestCard swap={swap} onAction={handleAction} />
-            {swap.status === "accepted" && !swap.feedbackGiven && (
-              <FeedbackForm
-                onSubmit={(feedback) => handleFeedbackSubmit(swap.id, feedback)}
-              />
+        inc.map((r) => (
+          <div key={r.id} className="card">
+            <p>
+              <strong>{r.sender}</strong> wants your{" "}
+              <em>"{r.skillRequested}"</em>
+            </p>
+            <p>
+              <strong>Status:</strong> {r.status}
+            </p>
+            {r.status === "pending" && (
+              <>
+                <button
+                  className="button"
+                  onClick={() => act(r.id, "accepted")}
+                >
+                  ✅ Accept
+                </button>
+                <button
+                  className="button"
+                  onClick={() => act(r.id, "rejected")}
+                >
+                  ❌ Reject
+                </button>
+              </>
+            )}
+          </div>
+        ))
+      )}
+
+      <h3>Outgoing</h3>
+      {out.length === 0 ? (
+        <p>No outgoing.</p>
+      ) : (
+        out.map((r) => (
+          <div key={r.id} className="card">
+            <p>
+              You requested <strong>{r.receiver}</strong> for "
+              {r.skillRequested}"
+            </p>
+            <p>
+              <strong>Status:</strong> {r.status}
+            </p>
+            {r.status === "pending" && (
+              <button className="button" onClick={() => cancel(r.id)}>
+                ❌ Cancel
+              </button>
             )}
           </div>
         ))
